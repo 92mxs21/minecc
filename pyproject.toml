@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "minecc"
-version = "0.1.0"
-description = "Clean-room local JVM bytecode inspector, checksum verifier, and Vineflower decompilation runner for locally installed Minecraft: Java Edition builds."
+version = "2.0.0"
+description = "Native C++20 self-rendered dark Java/Minecraft reverse-engineering studio, minimal HTML+CSS AOT compiler, and Ghidra-grade headless AI CLI."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"

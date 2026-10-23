@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate crisp FreeType2-hinted glyph atlases from permissive DejaVu fonts into C++."""
+"""Generate crisp FreeType2-hinted glyph atlases (including 16px & 26px display headings) into C++."""
 
 from __future__ import annotations
 
@@ -14,10 +14,12 @@ FONT_SPECS = [
     ("SANS_11", FONT_DIR / "DejaVuSans.ttf", False, False, 11),
     ("SANS_12", FONT_DIR / "DejaVuSans.ttf", False, False, 12),
     ("SANS_13", FONT_DIR / "DejaVuSans.ttf", False, False, 13),
+    ("SANS_15", FONT_DIR / "DejaVuSans.ttf", False, False, 15),
     ("SANS_BOLD_11", FONT_DIR / "DejaVuSans-Bold.ttf", True, False, 11),
     ("SANS_BOLD_12", FONT_DIR / "DejaVuSans-Bold.ttf", True, False, 12),
     ("SANS_BOLD_14", FONT_DIR / "DejaVuSans-Bold.ttf", True, False, 14),
-    ("SANS_BOLD_18", FONT_DIR / "DejaVuSans-Bold.ttf", True, False, 18),
+    ("SANS_BOLD_17", FONT_DIR / "DejaVuSans-Bold.ttf", True, False, 17),
+    ("SANS_BOLD_24", FONT_DIR / "DejaVuSans-Bold.ttf", True, False, 24),
     ("MONO_11", FONT_DIR / "DejaVuSansMono.ttf", False, False, 11),
     ("MONO_12", FONT_DIR / "DejaVuSansMono.ttf", False, False, 12),
     ("MONO_13", FONT_DIR / "DejaVuSansMono.ttf", False, False, 13),
@@ -36,9 +38,11 @@ CODEPOINTS: list[int] = list(range(0x20, 0x7F)) + [
     0x2026,  # …
     0x2190,  # ←
     0x2192,  # →
+    0x2197,  # ↗
     0x21C4,  # ⇄
     0x25B8,  # ▸
     0x25BE,  # ▾
+    0x25CF,  # ●
     0x2699,  # ⚙
     0x2713,  # ✓
 ]

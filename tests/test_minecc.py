@@ -296,7 +296,7 @@ class TestNativeEngineCompilerAndExecutables(unittest.TestCase):
 
     def test_windows_pe64_and_linux_elf64_executables_valid(self) -> None:
         bin_dir = self._bin_dir()
-        for linux_name in ("minecc-uic-linux-x86_64", "minecc-studio-linux-x86_64"):
+        for linux_name in ("minecc-uic-linux-x86_64", "minecc-linux-x86_64"):
             p = bin_dir / linux_name
             self.assertTrue(p.is_file(), f"Missing Linux x64 binary: {p}")
             hdr = p.read_bytes()[:20]
@@ -305,7 +305,7 @@ class TestNativeEngineCompilerAndExecutables(unittest.TestCase):
             e_machine = struct.unpack_from("<H", hdr, 18)[0]
             self.assertEqual(e_machine, 0x3E)  # EM_X86_64
 
-        for win_name in ("minecc-uic-windows-x86_64.exe", "minecc-studio-windows-x86_64.exe"):
+        for win_name in ("minecc-uic-windows-x86_64.exe", "minecc-windows-x86_64.exe"):
             p = bin_dir / win_name
             self.assertTrue(p.is_file(), f"Missing Windows x64 .exe: {p}")
             raw = p.read_bytes()
@@ -315,73 +315,106 @@ class TestNativeEngineCompilerAndExecutables(unittest.TestCase):
             machine = struct.unpack_from("<H", raw, pe_off + 4)[0]
             self.assertEqual(machine, 0x8664)  # IMAGE_FILE_MACHINE_AMD64
 
-    def test_uic_custom_app_pack_exe_and_jar_deflate_disassembly(self) -> None:
+    def test_headless_ghidra_ai_cli_and_uic_compiler(self) -> None:
         import subprocess
 
         bin_dir = self._bin_dir()
         uic = bin_dir / "minecc-uic-linux-x86_64"
-        studio = bin_dir / "minecc-studio-linux-x86_64"
+        exe = bin_dir / "minecc-linux-x86_64"
+        repo = Path(__file__).resolve().parents[1]
 
         with tempfile.TemporaryDirectory() as tmp:
             tdir = Path(tmp)
-            # 1. Test custom HTML5 + CSS3 + ES6 -> standalone native executable via `minecc-uic --pack-exe`
-            (tdir / "app.css").write_text(
-                ":root { --bg: #101820; --accent: #3fb950; }\n"
-                "html, body { width: 100%; height: 100%; background: var(--bg); }\n"
-                ".box { display: flex; padding: 20px; color: var(--accent); font-weight: bold; }\n",
-                encoding="utf-8",
-            )
-            (tdir / "app.js").write_text(
-                'const el = document.getElementById("greeting");\n'
-                'el.textContent = "Custom Compiled Native App OK: " + (20 + 6) + ".3";\n',
-                encoding="utf-8",
-            )
-            (tdir / "app.html").write_text(
-                '<!doctype html><html><head><link rel="stylesheet" href="app.css"></head>'
-                '<body><div id="greeting" class="box">init</div><script src="app.js"></script></body></html>',
-                encoding="utf-8",
-            )
-
-            packed_exe = tdir / "custom-native-app"
-            res_compile = subprocess.run(
-                [str(uic), str(tdir / "app.html"), "--pack-exe", str(studio), str(packed_exe)],
+            # 1. Verify minimal forked HTML+CSS AOT compiler emits valid C++20 spec header
+            out_hpp = tdir / "spec.hpp"
+            res_uic = subprocess.run(
+                [str(uic), str(repo / "ui/flux_layout.html"), "--css", str(repo / "ui/flux_theme.css"), "--emit-cpp", str(out_hpp)],
                 capture_output=True,
                 text=True,
                 check=True,
             )
-            self.assertIn("Compiled 'app.html'", res_compile.stdout)
+            self.assertIn("Compiled 'flux_layout.html'", res_uic.stdout)
+            self.assertIn("constexpr ThemePalette THEME", out_hpp.read_text(encoding="utf-8"))
 
-            custom_png = tdir / "custom_render.png"
-            subprocess.run(
-                [str(packed_exe), "--size", "800x480", "--render-png", str(custom_png)],
-                check=True,
-            )
-            png_bytes = custom_png.read_bytes()
-            self.assertEqual(png_bytes[:8], b"\x89PNG\r\n\x1a\n")
-            w, h = struct.unpack_from(">II", png_bytes, 16)
-            self.assertEqual((w, h), (800, 480))
+            # 2. Verify all Headless AI CLI subcommands (`skill`, `overview`, `tree`, `search`, `inspect`, `decompile`, `disasm`, `xrefs`, `strings`)
+            res_skill = subprocess.run([str(exe), "ai", "skill"], capture_output=True, text=True, check=True)
+            self.assertIn("minecc ai xrefs", res_skill.stdout)
 
-            # 2. Test loading a real DEFLATE-compressed JAR with Java SE 25 (69.0) classfile inside C++ engine!
-            jar_path = tdir / "live_test_26_3.jar"
-            cls_bytes = _build_synthetic_class(
+            res_ov = subprocess.run([str(exe), "ai", "overview", "--json"], capture_output=True, text=True, check=True)
+            ov_json = json.loads(res_ov.stdout)
+            self.assertGreaterEqual(ov_json["top_level_classes"], 10)
+
+            res_xrefs = subprocess.run([str(exe), "ai", "xrefs", "DetectedVersion", "--json"], capture_output=True, text=True, check=True)
+            xr_json = json.loads(res_xrefs.stdout)
+            self.assertEqual(xr_json["target"], "DetectedVersion")
+            self.assertGreaterEqual(len(xr_json["incoming"]), 2)
+
+            res_dec = subprocess.run([str(exe), "ai", "decompile", "Minecraft", "--lines", "1-15"], capture_output=True, text=True, check=True)
+            self.assertIn("class Minecraft", res_dec.stdout)
+
+            res_dis = subprocess.run([str(exe), "ai", "disasm", "DetectedVersion", "tryDetectVersion"], capture_output=True, text=True, check=True)
+            self.assertIn("invokestatic", res_dis.stdout)
+
+            res_str = subprocess.run([str(exe), "ai", "strings", "version.json", "--json"], capture_output=True, text=True, check=True)
+            self.assertGreaterEqual(len(json.loads(res_str.stdout)), 1)
+
+            # Verify Python CLI wrapper `minecc ai ...` delegates cleanly
+            self.assertEqual(cli_main(["ai", "inspect", "DetectedVersion", "--json"]), 0)
+
+    def test_hostile_corrupted_jar_and_11383_class_scale_benchmark(self) -> None:
+        import subprocess
+        import time
+
+        exe = self._bin_dir() / "minecc-linux-x86_64"
+        with tempfile.TemporaryDirectory() as tmp:
+            tdir = Path(tmp)
+
+            # 1. Hostile / corrupted archives MUST NEVER crash with SIGSEGV / SIGABRT!
+            bad_cases = [
+                b"",
+                b"PK\x03\x04truncated_garbage",
+                b"PK\x05\x06" + b"\xff" * 40,
+            ]
+            for idx, raw in enumerate(bad_cases):
+                bad_jar = tdir / f"corrupt_{idx}.jar"
+                bad_jar.write_bytes(raw)
+                res = subprocess.run([str(exe), "ai", "overview", "--jar", str(bad_jar)], capture_output=True, text=True)
+                self.assertGreaterEqual(res.returncode, 0, f"Native engine crashed with signal {res.returncode}!")
+
+            # Corrupted 0xCAFEBABE inside valid ZIP MUST also never crash!
+            fuzz_jar = tdir / "corrupt_class.jar"
+            with zipfile.ZipFile(fuzz_jar, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                zf.writestr("net/fuzz/Broken.class", b"\xca\xfe\xba\xbe\x00\x00\x00\x45\x00\x1f\x07\x00\x99\xff\x00")
+            res_fuzz = subprocess.run([str(exe), "ai", "inspect", "Broken", "--jar", str(fuzz_jar)], capture_output=True, text=True)
+            self.assertGreaterEqual(res_fuzz.returncode, 0)
+
+            # 2. Full Minecraft 26.3 scale test: 11,383 classes in a compressed JAR + 1440x880 native render!
+            scale_jar = tdir / "scale_26_3_11383_classes.jar"
+            sample_cls = _build_synthetic_class(
                 "net/minecraft/DetectedVersion",
                 fields=[("protocolVersion", "I")],
-                methods=[("tryDetectVersion", "()V", b"\x10\x45\x57\xb1", [20, 21], ["ver"])],
+                methods=[("tryDetectVersion", "()I", b"\x11\x03\x05\xac", [12], ["v"])],
                 source_file="DetectedVersion.java",
             )
-            with zipfile.ZipFile(jar_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-                zf.writestr("net/minecraft/DetectedVersion.class", cls_bytes)
+            with zipfile.ZipFile(scale_jar, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                zf.writestr("net/minecraft/DetectedVersion.class", sample_cls)
+                for i in range(11_382):
+                    zf.writestr(f"net/minecraft/pkg{i // 200}/Cls{i}.class", sample_cls)
 
-            jar_png = tdir / "jar_loaded.png"
-            res_jar = subprocess.run(
-                [str(studio), "--jar", str(jar_path), "--render-png", str(jar_png)],
+            t0 = time.perf_counter()
+            out_png = tdir / "scale_render.png"
+            res_scale = subprocess.run(
+                [str(exe), "--jar", str(scale_jar), "--screen", "code", "--class", "DetectedVersion", "--render-png", str(out_png)],
                 capture_output=True,
                 text=True,
                 check=True,
             )
-            self.assertIn("Loaded 1 top-level classes", res_jar.stdout)
-            self.assertEqual(jar_png.read_bytes()[:8], b"\x89PNG\r\n\x1a\n")
-
+            elapsed = time.perf_counter() - t0
+            self.assertLess(elapsed, 4.0, f"11,383-class index + 1440x880 render took too long: {elapsed:.2f}s")
+            png_bytes = out_png.read_bytes()
+            self.assertEqual(png_bytes[:8], b"\x89PNG\r\n\x1a\n")
+            w, h = struct.unpack_from(">II", png_bytes, 16)
+            self.assertEqual((w, h), (1440, 880))
 
 
 if __name__ == "__main__":
