@@ -32,14 +32,26 @@ jobs:
           python3 -m ziglang c++ -std=c++20 -Os -DNDEBUG -fno-exceptions -s \
             -target wasm32-wasi -mexec-model=reactor -Wl,--export-dynamic \
             -I. native/wasm/minecc_wasm.cpp -o docs/minecc.wasm
-      - name: Configure & Auto-Enable GitHub Pages
+      - name: Check if GitHub Pages is enabled in Repository Settings
+        id: check_pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh api "repos/${{ github.repository }}/pages" >/dev/null 2>&1; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::In Repository Settings -> Pages, set Source to 'Deploy from a branch' (main -> /docs) or 'GitHub Actions' once to activate https://92mxs21.github.io/minecc/"
+          fi
+      - name: Configure GitHub Pages
+        if: steps.check_pages.outputs.enabled == 'true'
         uses: actions/configure-pages@v5
-        with:
-          enablement: true
       - name: Upload `docs/` WebAssembly Studio Artifact
+        if: steps.check_pages.outputs.enabled == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: "./docs"
       - name: Deploy to GitHub Pages
+        if: steps.check_pages.outputs.enabled == 'true'
         id: deployment
         uses: actions/deploy-pages@v4
