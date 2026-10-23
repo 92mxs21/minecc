@@ -1,0 +1,33 @@
+# Never commit proprietary Minecraft binaries, bytecode, mappings, assets, or decompiled output
+.local/
+work/
+sources/
+decompiled/
+eula.txt
+
+# Block accidental staging of JAR/class artifacts or unpacked game trees
+*.jar
+*.class
+*.mrpack
+client_mappings.txt
+server_mappings.txt
+/net/
+/com/
+/assets/
+/data/
+/META-INF/
+version.json
+
+# Python build / test / tooling artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/

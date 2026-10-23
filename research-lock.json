@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-10-23",
+  "minecraft_versions": {
+    "26.3": {
+      "release_name": "Wilderness Bound",
+      "release_type": "release",
+      "release_date": "2026-09-15",
+      "java_major": 25,
+      "classfile_major": 69,
+      "obfuscated": false,
+      "protocol_version": 777,
+      "data_version": 5023,
+      "resource_pack_format": "97.1",
+      "data_pack_format": "121.0",
+      "manifest_sha1": "11f1aefe473eefba0af62e3286c33b692807b2eb",
+      "accepted_manifest_sha1": [
+        "4fe1aa1ef8da1cb95c5bad1fb98890ca56dd8ca3",
+        "702fe59163c6ee6578607daa85811d9bc9c7cc40",
+        "61fff1316bd50312624a858bbb5eb18fa45208ed"
+      ],
+      "client_sha1": "e877b6a07acd633fb3bb475002175cec036e7b87",
+      "client_approx_mib": 53,
+      "server_sha1": "33680f5f2ac32864d6d7cf5e56a705fdb3e05f4c",
+      "server_inner_entry": "META-INF/versions/26.3/server-26.3.jar",
+      "server_inner_sha256": "a362163eec5d1612d520772bc16e5b39c09e3b234fdc045f56bf544284ee8ae6",
+      "audited_metrics": {
+        "verified_with": "Vineflower 1.12.0 + OpenJDK 25",
+        "verified_date": "2026-10-03",
+        "client": {
+          "input_classes": 11383,
+          "input_methods": 98739,
+          "expected_java_files": 7301,
+          "emitted_java_files": 7301,
+          "missing_files": 0,
+          "failed_decompilation_markers": 0
+        },
+        "dedicated_server_inner": {
+          "input_classes": 7762,
+          "input_methods": 72269,
+          "expected_java_files": 5037,
+          "emitted_java_files": 5037,
+          "missing_files": 0,
+          "failed_decompilation_markers": 0
+        }
+      }
+    },
+    "26.4-snapshot-5": {
+      "release_name": "26.4 Snapshot 5 (Fourth Drop 2026 preview)",
+      "release_type": "snapshot",
+      "release_date": "2026-10-20",
+      "java_major": 25,
+      "classfile_major": 69,
+      "obfuscated": false,
+      "manifest_sha1": "2ee2d20f6e6a37aae39238fff3286ab879a99ce6",
+      "client_sha1": "dabe2b9759859995565e7d01c4a96d05043718ee",
+      "client_approx_mib": 76,
+      "server_sha1": "ed041232700614aeaaf72a6ea88b7f58ca3f8e4a"
+    },
+    "1.21.11": {
+      "release_name": "Mounts of Mayhem (final 1.x & final obfuscated release)",
+      "release_type": "release",
+      "release_date": "2025-12-09",
+      "java_major": 21,
+      "classfile_major": 65,
+      "obfuscated": true
+    }
+  },
+  "vineflower": {
+    "version": "1.12.0",
+    "license": "Apache-2.0",
+    "url": "https://github.com/Vineflower/vineflower/releases/download/1.12.0/vineflower-1.12.0.jar",
+    "sha256": "1dfcfe974395734fa467ce620661c7623d05ba83670de0529b1fbd63ff548b9d",
+    "min_runtime_java": 17
+  }
+}
