@@ -1,56 +1,45 @@
-/*
- * FluxUI Minimal Forked CSS Design System (`ui/flux_theme.css`)
- * Compiled ahead-of-time into zero-allocation C++20 `constexpr` tables by `minecc-uic`.
- * Only the clean, expressive design primitives of CSS (tokens, radii, elevation, spring motion).
- */
-
+/* Clean Neutral Developer Charcoal Theme (`ui/flux_theme.css`) — Zero AI Neon Slop */
 :root {
-  /* Obsidian Glass Dark Palette */
-  --bg-abyss: #07090d;
-  --bg-rail: #0a0d13;
-  --bg-topbar: #0c1017;
-  --bg-panel: #0e131b;
-  --bg-card: #121824;
-  --bg-card-alt: #0f1520;
-  --bg-card-hover: #182132;
-  --bg-elevated: #1b2538;
-  --bg-selected: rgba(56, 189, 248, 0.14);
-  --bg-line-hl: rgba(56, 189, 248, 0.09);
+  --bg-abyss: #0e1015;
+  --bg-rail: #12151c;
+  --bg-topbar: #141820;
+  --bg-panel: #151922;
+  --bg-card: #181d27;
+  --bg-card-alt: #141821;
+  --bg-card-hover: #1f2633;
+  --bg-elevated: #232b3a;
+  --bg-selected: rgba(59, 130, 246, 0.16);
+  --bg-line-hl: rgba(59, 130, 246, 0.10);
 
-  /* Crisp Hairlines & Specular Glass Highlights */
-  --border-subtle: rgba(148, 163, 184, 0.11);
-  --border-strong: rgba(148, 163, 184, 0.20);
-  --border-active: rgba(56, 189, 248, 0.52);
-  --glass-highlight: rgba(255, 255, 255, 0.05);
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --border-active: rgba(59, 130, 246, 0.65);
+  --glass-highlight: rgba(255, 255, 255, 0.03);
 
-  /* Signature Electric Accents */
-  --accent-cyan: #38bdf8;
-  --accent-indigo: #818cf8;
-  --accent-emerald: #34d399;
-  --accent-amber: #fbbf24;
-  --accent-rose: #fb7185;
+  --accent-cyan: #3b82f6;
+  --accent-indigo: #60a5fa;
+  --accent-emerald: #22c55e;
+  --accent-amber: #eab308;
+  --accent-rose: #ef4444;
 
-  /* Crisp High-Contrast Typography */
-  --text-bright: #f8fafc;
-  --text-primary: #cbd5e1;
-  --text-secondary: #94a3b8;
-  --text-muted: #5b6b82;
+  --text-bright: #f1f5f9;
+  --text-primary: #d1d5db;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
 
-  /* High-Clarity Reverse-Engineering Syntax Tokens */
-  --syn-keyword: #c084fc;
-  --syn-type: #38bdf8;
-  --syn-method: #fcd34d;
+  --syn-keyword: #c678dd;
+  --syn-type: #61afef;
+  --syn-method: #e5c07b;
   --syn-field: #7dd3fc;
-  --syn-string: #6ee7b7;
-  --syn-number: #fb923c;
-  --syn-comment: #4e6078;
-  --syn-annot: #f472b6;
+  --syn-string: #98c379;
+  --syn-number: #d19a66;
+  --syn-comment: #5c6370;
+  --syn-annot: #e06c75;
 
-  /* Geometry & 60fps Spring Motion */
-  --rail-width: 56px;
-  --topbar-height: 46px;
+  --rail-width: 48px;
+  --topbar-height: 42px;
   --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --anim-speed: 14.0;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --anim-speed: 18.0;
 }
