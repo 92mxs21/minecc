@@ -32,8 +32,10 @@ jobs:
           python3 -m ziglang c++ -std=c++20 -Os -DNDEBUG -fno-exceptions -s \
             -target wasm32-wasi -mexec-model=reactor -Wl,--export-dynamic \
             -I. native/wasm/minecc_wasm.cpp -o docs/minecc.wasm
-      - name: Configure GitHub Pages
+      - name: Configure & Auto-Enable GitHub Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - name: Upload `docs/` WebAssembly Studio Artifact
         uses: actions/upload-pages-artifact@v3
         with:
