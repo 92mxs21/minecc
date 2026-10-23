@@ -1,0 +1,22 @@
+name: Clean-Room Verification & Tree Guard
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Zig C++ cross-toolchain
+        run: python3 -m pip install ziglang pillow
+      - name: Rebuild Linux ELF64 & Windows PE32+ executables from C++20 source
+        run: python3 scripts/build_native.py
+      - name: Verify zero proprietary Minecraft artifacts in Git tree
+        run: PYTHONPATH=src python3 -m minecc check-tree
+      - name: Run unit & native engine integration suite
+        run: PYTHONPATH=src python3 -m unittest discover -s tests -v

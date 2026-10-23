@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+PYTHONPATH="${REPO_ROOT}/src" python3 -m minecc check-tree --repo "${REPO_ROOT}"
