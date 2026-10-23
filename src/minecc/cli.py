@@ -173,6 +173,11 @@ def _cmd_check_tree(args: argparse.Namespace) -> int:
     return 0
 
 
+def _native_studio_exe() -> Path:
+    exe_name = "minecc-windows-x86_64.exe" if os.name == "nt" else "minecc-linux-x86_64"
+    return _repo_root() / "bin" / exe_name
+
+
 def _cmd_uic(args: argparse.Namespace) -> int:
     exe_name = "minecc-uic-windows-x86_64.exe" if os.name == "nt" else "minecc-uic-linux-x86_64"
     exe = _repo_root() / "bin" / exe_name
@@ -183,12 +188,19 @@ def _cmd_uic(args: argparse.Namespace) -> int:
 
 
 def _cmd_studio(args: argparse.Namespace) -> int:
-    exe_name = "minecc-studio-windows-x86_64.exe" if os.name == "nt" else "minecc-studio-linux-x86_64"
-    exe = _repo_root() / "bin" / exe_name
+    exe = _native_studio_exe()
     if not exe.exists():
         print(f"error: native studio binary not found at {exe}", file=sys.stderr)
         return 2
     return subprocess.call([str(exe), *args.studio_args])
+
+
+def _cmd_ai(args: argparse.Namespace) -> int:
+    exe = _native_studio_exe()
+    if not exe.exists():
+        print(f"error: native AI engine binary not found at {exe}", file=sys.stderr)
+        return 2
+    return subprocess.call([str(exe), "ai", *args.ai_args])
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -236,18 +248,33 @@ def build_parser() -> argparse.ArgumentParser:
     p_guard.add_argument("--repo", help="Repository root path (defaults to minecc checkout)")
     p_guard.set_defaults(func=_cmd_check_tree)
 
-    p_uic = sub.add_parser("uic", help="Invoke native C++20 HTML5+CSS3+ES6 compiler (bin/minecc-uic-*)")
+    p_uic = sub.add_parser("uic", help="Invoke native C++20 minimal HTML+CSS AOT compiler (bin/minecc-uic-*)")
     p_uic.add_argument("uic_args", nargs=argparse.REMAINDER, help="Arguments forwarded to minecc-uic")
     p_uic.set_defaults(func=_cmd_uic)
 
-    p_studio = sub.add_parser("studio", help="Launch native C++20 mcsrc-style code explorer (bin/minecc-studio-*)")
-    p_studio.add_argument("studio_args", nargs=argparse.REMAINDER, help="Arguments forwarded to minecc-studio")
+    p_studio = sub.add_parser("studio", help="Launch native C++20 dark studio or live server (bin/minecc-*)")
+    p_studio.add_argument("studio_args", nargs=argparse.REMAINDER, help="Arguments forwarded to native studio")
     p_studio.set_defaults(func=_cmd_studio)
+
+    p_ai = sub.add_parser("ai", help="Headless Ghidra-style AI reverse-engineering CLI (zero MCP / zero JVM)")
+    p_ai.add_argument("ai_args", nargs=argparse.REMAINDER, help="AI CLI subcommand & flags")
+    p_ai.set_defaults(func=_cmd_ai)
 
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
+    raw = list(sys.argv[1:] if argv is None else argv)
+    # Forward raw tail directly for `ai`, `studio`, and `uic` so flags like `--json` or `--help` pass straight through!
+    if raw and raw[0] in ("ai", "studio", "uic"):
+        head, tail = raw[0], raw[1:]
+        ns = argparse.Namespace(ai_args=tail, studio_args=tail, uic_args=tail)
+        if head == "ai":
+            return _cmd_ai(ns)
+        if head == "studio":
+            return _cmd_studio(ns)
+        return _cmd_uic(ns)
+
     parser = build_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(raw)
     return args.func(args)

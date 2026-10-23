@@ -1,0 +1,56 @@
+/*
+ * FluxUI Minimal Forked CSS Design System (`ui/flux_theme.css`)
+ * Compiled ahead-of-time into zero-allocation C++20 `constexpr` tables by `minecc-uic`.
+ * Only the clean, expressive design primitives of CSS (tokens, radii, elevation, spring motion).
+ */
+
+:root {
+  /* Obsidian Glass Dark Palette */
+  --bg-abyss: #07090d;
+  --bg-rail: #0a0d13;
+  --bg-topbar: #0c1017;
+  --bg-panel: #0e131b;
+  --bg-card: #121824;
+  --bg-card-alt: #0f1520;
+  --bg-card-hover: #182132;
+  --bg-elevated: #1b2538;
+  --bg-selected: rgba(56, 189, 248, 0.14);
+  --bg-line-hl: rgba(56, 189, 248, 0.09);
+
+  /* Crisp Hairlines & Specular Glass Highlights */
+  --border-subtle: rgba(148, 163, 184, 0.11);
+  --border-strong: rgba(148, 163, 184, 0.20);
+  --border-active: rgba(56, 189, 248, 0.52);
+  --glass-highlight: rgba(255, 255, 255, 0.05);
+
+  /* Signature Electric Accents */
+  --accent-cyan: #38bdf8;
+  --accent-indigo: #818cf8;
+  --accent-emerald: #34d399;
+  --accent-amber: #fbbf24;
+  --accent-rose: #fb7185;
+
+  /* Crisp High-Contrast Typography */
+  --text-bright: #f8fafc;
+  --text-primary: #cbd5e1;
+  --text-secondary: #94a3b8;
+  --text-muted: #5b6b82;
+
+  /* High-Clarity Reverse-Engineering Syntax Tokens */
+  --syn-keyword: #c084fc;
+  --syn-type: #38bdf8;
+  --syn-method: #fcd34d;
+  --syn-field: #7dd3fc;
+  --syn-string: #6ee7b7;
+  --syn-number: #fb923c;
+  --syn-comment: #4e6078;
+  --syn-annot: #f472b6;
+
+  /* Geometry & 60fps Spring Motion */
+  --rail-width: 56px;
+  --topbar-height: 46px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --anim-speed: 14.0;
+}

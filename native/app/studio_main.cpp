@@ -1,329 +1,140 @@
-// minecc-studio: Native C++20 Minecraft 26.3 Code & Bytecode Explorer (Helios HTML5+CSS3+ES6 Software Engine)
-// Zero WebView2, Zero Chromium, Zero Electron, Zero proprietary Mojang assets embedded in binary.
+// minecc v2.0 — Native C++20 Self-Rendered Dark Studio + Headless Ghidra-Grade AI CLI
+// Zero WebView · Zero Browser Engine · Zero Proprietary Mojang Code Distributed
 
-#include <algorithm>
-#include <filesystem>
-#include <fstream>
-#include <iomanip>
+#include <cstring>
+#include <exception>
 #include <iostream>
-#include <sstream>
 #include <string>
 #include <vector>
 
-#include "native/generated/mcsrc_bundle.hpp"
-#include "native/include/helios/bundle_format.hpp"
-#include "native/include/helios/jvm_reader.hpp"
-#include "native/include/helios/platform.hpp"
-
-namespace fs = std::filesystem;
+#include "native/include/flux/ai_cli.hpp"
+#include "native/include/flux/platform_io.hpp"
 
 namespace {
 
-bool try_load_self_trailer_bundle(const std::string& exe_path, helios::bundle::BundlePayload& out) {
-    std::ifstream f(exe_path, std::ios::binary | std::ios::ate);
-    if (!f) return false;
-    auto sz = f.tellg();
-    if (sz < 32) return false;
-    size_t total = static_cast<size_t>(sz);
-    uint8_t tail[16] = {0};
-    f.seekg(static_cast<std::streamoff>(total - 16));
-    f.read(reinterpret_cast<char*>(tail), 16);
-    if (std::memcmp(tail + 8, "HELIOSEX", 8) != 0) return false;
-
-    size_t p = 0;
-    uint64_t muib_len = helios::bundle::read_u64_le(tail, 16, p);
-    if (muib_len == 0 || muib_len + 16 > total) return false;
-
-    std::vector<uint8_t> buf(static_cast<size_t>(muib_len));
-    f.seekg(static_cast<std::streamoff>(total - 16 - muib_len));
-    f.read(reinterpret_cast<char*>(buf.data()), static_cast<std::streamsize>(muib_len));
-    out = helios::bundle::deserialize_bundle(buf.data(), buf.size());
-    return true;
+bool is_ai_subcommand(const std::string& s) {
+    return s == "ai" || s == "skill" || s == "overview" || s == "tree" ||
+           s == "search" || s == "inspect" || s == "decompile" ||
+           s == "disasm" || s == "xrefs" || s == "callgraph" || s == "strings";
 }
 
-void bind_workspace_host_api(helios::HeliosEngine& engine, helios::jvm::CodeWorkspace& ws) {
-    using namespace helios::js;
-    auto host = make_object();
-
-    host.obj->props["listClasses"] = make_native_fn([&ws](JsRuntime&, const JsValue&, const std::vector<JsValue>&) {
-        std::vector<JsValue> list;
-        list.reserve(ws.classes.size());
-        for (const auto& [name, rec] : ws.classes) {
-            auto o = make_object();
-            o.obj->props["name"] = JsValue::string(name);
-            o.obj->props["kind"] = JsValue::string(rec.kind);
-            list.push_back(std::move(o));
-        }
-        return make_array(std::move(list));
-    });
-
-    host.obj->props["hasClass"] = make_native_fn([&ws](JsRuntime&, const JsValue&, const std::vector<JsValue>& a) {
-        if (a.empty()) return JsValue::boolean(false);
-        return JsValue::boolean(ws.classes.find(a[0].to_str()) != ws.classes.end());
-    });
-
-    host.obj->props["getStats"] = make_native_fn([&ws](JsRuntime&, const JsValue&, const std::vector<JsValue>&) {
-        auto o = make_object();
-        o.obj->props["mode"] = JsValue::string(ws.active_mode);
-        o.obj->props["loadedCount"] = JsValue::number(static_cast<double>(ws.classes.size()));
-        return o;
-    });
-
-    host.obj->props["inspectClass"] = make_native_fn([&ws](JsRuntime&, const JsValue&, const std::vector<JsValue>& a) {
-        std::string cls = a.empty() ? "net/minecraft/DetectedVersion" : a[0].to_str();
-        std::string ver = a.size() >= 2 ? a[1].to_str() : "26.3";
-
-        auto o = make_object();
-        auto it = ws.classes.find(cls);
-        if (it == ws.classes.end()) {
-            o.obj->props["source"] = JsValue::string("// Class not found: " + cls);
-            o.obj->props["bytecode"] = JsValue::string("// No bytecode available");
-            o.obj->props["diff"] = JsValue::string("// No diff available");
-            o.obj->props["kind"] = JsValue::string("class");
-            o.obj->props["flagsHex"] = JsValue::string("0001");
-            o.obj->props["superName"] = JsValue::string("java/lang/Object");
-            o.obj->props["interfaces"] = make_array();
-            o.obj->props["subtypes"] = make_array();
-            o.obj->props["methods"] = make_array();
-            o.obj->props["diffAdded"] = JsValue::number(0);
-            o.obj->props["diffRemoved"] = JsValue::number(0);
-            return o;
-        }
-
-        const auto& rec = it->second;
-        std::ostringstream fx;
-        fx << std::hex << rec.access_flags;
-
-        std::vector<JsValue> itfs, subs, mtds;
-        for (const auto& i : rec.interfaces) itfs.push_back(JsValue::string(i));
-        for (const auto& m : rec.methods) mtds.push_back(JsValue::string(m));
-        for (const auto& [other_name, other_rec] : ws.classes) {
-            if (other_rec.super_name == cls ||
-                std::find(other_rec.interfaces.begin(), other_rec.interfaces.end(), cls) != other_rec.interfaces.end())
-            {
-                subs.push_back(JsValue::string(other_name));
-            }
-        }
-
-        o.obj->props["source"] = JsValue::string(ws.read_java_source(cls, ver));
-        o.obj->props["bytecode"] = JsValue::string(rec.bytecode_26_3);
-        o.obj->props["diff"] = JsValue::string(rec.diff_26_4);
-        o.obj->props["kind"] = JsValue::string(rec.kind);
-        o.obj->props["flagsHex"] = JsValue::string(fx.str());
-        o.obj->props["superName"] = JsValue::string(rec.super_name);
-        o.obj->props["interfaces"] = make_array(std::move(itfs));
-        o.obj->props["subtypes"] = make_array(std::move(subs));
-        o.obj->props["methods"] = make_array(std::move(mtds));
-        o.obj->props["diffAdded"] = JsValue::number(rec.diff_added);
-        o.obj->props["diffRemoved"] = JsValue::number(rec.diff_removed);
-        return o;
-    });
-
-    host.obj->props["search"] = make_native_fn([&ws](JsRuntime&, const JsValue&, const std::vector<JsValue>& a) {
-        std::string q = a.empty() ? "" : helios::detail::to_lower_ascii(a[0].to_str());
-        std::string scope = a.size() >= 2 ? a[1].to_str() : "Classes";
-        std::vector<JsValue> hits;
-        const size_t cap = 150;
-
-        for (const auto& [name, rec] : ws.classes) {
-            if (hits.size() >= cap) break;
-            if (scope == "Classes") {
-                if (helios::detail::to_lower_ascii(name).find(q) != std::string::npos) {
-                    auto h = make_object();
-                    h.obj->props["name"] = JsValue::string(name);
-                    h.obj->props["icon"] = JsValue::string(rec.kind);
-                    size_t sl = name.rfind('/');
-                    h.obj->props["label"] = JsValue::string(sl == std::string::npos ? name : name.substr(sl + 1));
-                    h.obj->props["detail"] = JsValue::string(sl == std::string::npos ? "" : name.substr(0, sl));
-                    h.obj->props["line"] = JsValue::number(1);
-                    hits.push_back(std::move(h));
-                }
-            } else if (scope == "Methods") {
-                for (const auto& m : rec.methods) {
-                    if (helios::detail::to_lower_ascii(m).find(q) != std::string::npos) {
-                        auto h = make_object();
-                        h.obj->props["name"] = JsValue::string(name);
-                        h.obj->props["icon"] = JsValue::string("method");
-                        h.obj->props["label"] = JsValue::string(m);
-                        size_t sl = name.rfind('/');
-                        h.obj->props["detail"] = JsValue::string(sl == std::string::npos ? name : name.substr(sl + 1));
-                        h.obj->props["line"] = JsValue::number(1);
-                        hits.push_back(std::move(h));
-                        if (hits.size() >= cap) break;
-                    }
-                }
-            } else if (scope == "Fields") {
-                for (const auto& f : rec.fields) {
-                    if (helios::detail::to_lower_ascii(f).find(q) != std::string::npos) {
-                        auto h = make_object();
-                        h.obj->props["name"] = JsValue::string(name);
-                        h.obj->props["icon"] = JsValue::string("field");
-                        h.obj->props["label"] = JsValue::string(f);
-                        size_t sl = name.rfind('/');
-                        h.obj->props["detail"] = JsValue::string(sl == std::string::npos ? name : name.substr(sl + 1));
-                        h.obj->props["line"] = JsValue::number(1);
-                        hits.push_back(std::move(h));
-                        if (hits.size() >= cap) break;
-                    }
-                }
-            } else {
-                // Content line-by-line search with exact line jump number!
-                std::istringstream iss(rec.source_26_3);
-                std::string ln_txt;
-                int ln_no = 0;
-                while (std::getline(iss, ln_txt)) {
-                    ++ln_no;
-                    if (helios::detail::to_lower_ascii(ln_txt).find(q) != std::string::npos) {
-                        auto h = make_object();
-                        h.obj->props["name"] = JsValue::string(name);
-                        h.obj->props["icon"] = JsValue::string(rec.kind);
-                        size_t sl = name.rfind('/');
-                        h.obj->props["label"] = JsValue::string((sl == std::string::npos ? name : name.substr(sl + 1)) + ":" + std::to_string(ln_no));
-                        h.obj->props["detail"] = JsValue::string(helios::css_detail::trim(ln_txt).substr(0, 28));
-                        h.obj->props["line"] = JsValue::number(ln_no);
-                        hits.push_back(std::move(h));
-                        break;
-                    }
-                }
-            }
-        }
-        return make_array(std::move(hits));
-    });
-
-    host.obj->props["openJarDialog"] = make_native_fn([&ws](JsRuntime&, const JsValue&, const std::vector<JsValue>&) {
-        std::string chosen = helios::native_open_jar_dialog();
-        if (chosen.empty()) {
-            return JsValue::string("Tip: Pass --jar <path/to/26.3.jar> or place 26.3.jar in ~/.minecraft/versions/26.3/26.3.jar");
-        }
-        std::string msg;
-        ws.load_jar_file(chosen, msg);
-        return JsValue::string(msg);
-    });
-
-    host.obj->props["setClipboard"] = make_native_fn([&engine](JsRuntime&, const JsValue&, const std::vector<JsValue>& a) {
-        if (!a.empty()) helios::native_set_clipboard(engine, a[0].to_str());
-        return JsValue::undef();
-    });
-
-    engine.js_rt->global_env->define("Host", host);
+void print_help() {
+    std::cout
+        << "minecc v2.0.0 — Pure C++20 Self-Rendered Java & Minecraft Studio + Headless AI CLI\n\n"
+        << "GUI & Preview Modes:\n"
+        << "  minecc                              Launch native dark desktop studio (Home Screen)\n"
+        << "  minecc <path/to/26.3.jar>           Launch studio pre-loaded with local JAR\n"
+        << "  minecc --serve <port>               Run live interactive HTML5 canvas server on 0.0.0.0:<port>\n"
+        << "  minecc --render-png <out.png> [--screen home|code|disasm|xrefs|strings|palette] [--class <Name>]\n\n"
+        << "Headless AI Reverse-Engineering CLI (Zero MCP / Zero JVM Overhead):\n"
+        << "  minecc ai skill                     Print full AI Agent playbook & command reference\n"
+        << "  minecc ai overview [--jar <jar>] [--json]\n"
+        << "  minecc ai tree [pkg] [--depth N] [--jar <jar>] [--json]\n"
+        << "  minecc ai search <query> [--scope all|classes|methods|fields|strings] [--json]\n"
+        << "  minecc ai inspect <Class> [--jar <jar>] [--json]\n"
+        << "  minecc ai decompile <Class> [--lines A-B] [--jar <jar>] [--json]\n"
+        << "  minecc ai disasm <Class> [method] [--jar <jar>] [--json]\n"
+        << "  minecc ai xrefs <Symbol> [--jar <jar>] [--json]\n"
+        << "  minecc ai callgraph <Class> [--jar <jar>] [--json]\n"
+        << "  minecc ai strings [query] [--limit N] [--jar <jar>] [--json]\n";
 }
 
 } // namespace
 
 int main(int argc, char** argv) {
-    std::string custom_bundle_path;
-    std::string jar_path;
-    std::string png_out;
-    std::string serve_addr;
-    std::string bin_dir = "bin";
-    int win_w = 1380;
-    int win_h = 840;
-    std::vector<std::pair<float, float>> sim_clicks;
-    std::vector<std::string> sim_keys;
-
-    for (int i = 1; i < argc; ++i) {
-        std::string arg = argv[i];
-        if (arg == "--bundle" && i + 1 < argc) custom_bundle_path = argv[++i];
-        else if (arg == "--jar" && i + 1 < argc) jar_path = argv[++i];
-        else if (arg == "--render-png" && i + 1 < argc) png_out = argv[++i];
-        else if (arg == "--serve" && i + 1 < argc) serve_addr = argv[++i];
-        else if (arg == "--bin-dir" && i + 1 < argc) bin_dir = argv[++i];
-        else if (arg == "--size" && i + 1 < argc) {
-            std::string s = argv[++i];
-            size_t xp = s.find('x');
-            if (xp != std::string::npos) {
-                win_w = std::atoi(s.substr(0, xp).c_str());
-                win_h = std::atoi(s.substr(xp + 1).c_str());
-            }
-        } else if (arg == "--click" && i + 1 < argc) {
-            std::string s = argv[++i];
-            size_t cp = s.find(',');
-            if (cp != std::string::npos) {
-                sim_clicks.emplace_back(std::strtof(s.substr(0, cp).c_str(), nullptr),
-                                        std::strtof(s.substr(cp + 1).c_str(), nullptr));
-            }
-        } else if (arg == "--key" && i + 1 < argc) {
-            sim_keys.emplace_back(argv[++i]);
-        } else if (arg == "--version" || arg == "-v") {
-            std::cout << "minecc-studio 0.2.0 (HeliosUI Native C++20 HTML5+CSS3+ES6 Engine & JVM 69.0 Disassembler)\n";
-            return 0;
-        }
-    }
-
     try {
-        helios::bundle::BundlePayload bundle;
-        if (!custom_bundle_path.empty()) {
-            std::ifstream f(custom_bundle_path, std::ios::binary | std::ios::ate);
-            if (!f) throw std::runtime_error("Cannot open bundle: " + custom_bundle_path);
-            auto sz = f.tellg();
-            f.seekg(0);
-            std::vector<uint8_t> raw(static_cast<size_t>(sz));
-            f.read(reinterpret_cast<char*>(raw.data()), sz);
-            bundle = helios::bundle::deserialize_bundle(raw.data(), raw.size());
-        } else if (argc > 0 && argv[0] && try_load_self_trailer_bundle(argv[0], bundle)) {
-            // Packed standalone custom app created via `minecc-uic --pack-exe`!
-        } else {
-            bundle = helios::bundle::deserialize_bundle(
-                helios::embedded::DEFAULT_BUNDLE,
-                helios::embedded::DEFAULT_BUNDLE_SIZE);
+        if (argc >= 2) {
+            std::string first = argv[1];
+            if (first == "--version" || first == "-v") {
+                flux::platform::ensure_cli_streams_ready();
+                std::cout << "minecc 2.0.0 (FluxUI Pure C++20 Self-Renderer + Headless AI CLI)\n";
+                return 0;
+            }
+            if (first == "--help" || first == "-h" || first == "help") {
+                flux::platform::ensure_cli_streams_ready();
+                print_help();
+                return 0;
+            }
+            // Route BOTH `minecc ai <subcmd> ...` AND direct shorthand `minecc <subcmd> ...` cleanly!
+            if (is_ai_subcommand(first)) {
+                flux::platform::ensure_cli_streams_ready();
+                std::vector<std::string> ai_args;
+                int start_i = (first == "ai") ? 2 : 1;
+                for (int i = start_i; i < argc; ++i) ai_args.emplace_back(argv[i]);
+                return flux::ai::run_ai_cli(ai_args);
+            }
         }
 
-        helios::jvm::CodeWorkspace workspace;
+        std::string jar_path;
+        std::string render_png;
+        std::string screen_name = "home";
+        std::string initial_class;
+        std::string palette_seed;
+        int serve_port = 0;
+        int win_w = 1440;
+        int win_h = 880;
+
+        for (int i = 1; i < argc; ++i) {
+            std::string a = argv[i];
+            if (a == "--jar" && i + 1 < argc) jar_path = argv[++i];
+            else if (a == "--render-png" && i + 1 < argc) render_png = argv[++i];
+            else if (a == "--screen" && i + 1 < argc) screen_name = argv[++i];
+            else if (a == "--class" && i + 1 < argc) initial_class = argv[++i];
+            else if (a == "--query" && i + 1 < argc) palette_seed = argv[++i];
+            else if (a == "--serve" && i + 1 < argc) serve_port = std::atoi(argv[++i]);
+            else if (a == "--width" && i + 1 < argc) win_w = std::atoi(argv[++i]);
+            else if (a == "--height" && i + 1 < argc) win_h = std::atoi(argv[++i]);
+            else if (a.size() > 4 && a.substr(a.size() - 4) == ".jar") jar_path = a;
+        }
+
+        flux::StudioApp app;
+        if (jar_path.empty()) jar_path = flux::jvm::BinaryWorkspace::detect_local_minecraft_jar();
         if (!jar_path.empty()) {
-            std::string msg;
-            if (!workspace.load_jar_file(jar_path, msg)) {
-                std::cerr << "[minecc-studio] Warning: " << msg << "\n";
-            } else {
-                std::cout << "[minecc-studio] " << msg << "\n";
-            }
+            app.load_jar_file(jar_path, /*sync_index=*/!render_png.empty());
         }
 
-        helios::HeliosEngine engine;
-        engine.viewport_w = win_w;
-        engine.viewport_h = win_h;
-        engine.load_bundle(bundle);
-        bind_workspace_host_api(engine, workspace);
+        if (!initial_class.empty()) app.open_class(initial_class);
 
-        // Execute compiled ES6 UI script inside HeliosJS!
-        engine.js_rt->eval_script(bundle.js_source);
-        engine.render_if_needed(true);
-
-        for (const auto& [cx, cy] : sim_clicks) {
-            engine.on_mouse_click(cx, cy);
-        }
-        for (const auto& ks : sim_keys) {
-            for (char c : ks) engine.on_key_input(std::string(1, c), true);
+        if (screen_name == "home") app.switch_screen(flux::Screen::Home);
+        else if (screen_name == "code") app.switch_screen(flux::Screen::Code);
+        else if (screen_name == "disasm") app.switch_screen(flux::Screen::Disasm);
+        else if (screen_name == "xrefs") app.switch_screen(flux::Screen::XRefs);
+        else if (screen_name == "strings") app.switch_screen(flux::Screen::Strings);
+        else if (screen_name == "palette") {
+            app.switch_screen(flux::Screen::Code);
+            app.toggle_palette(true, palette_seed);
+            app.palette_anim_t = 1.0f;
         }
 
-        if (!png_out.empty()) {
-            if (fs::path(png_out).has_parent_path()) {
-                fs::create_directories(fs::path(png_out).parent_path());
-            }
-            if (!engine.painter.save_png(png_out)) {
-                std::cerr << "[minecc-studio] Failed to save rendered PNG: " << png_out << "\n";
+        // Settle initial view spring for deterministic headless screenshot output
+        app.view_enter_t = 1.0f;
+        app.rail_pill_y = flux::StudioApp::rail_slot_y(app.screen);
+
+        if (!render_png.empty()) {
+            flux::platform::ensure_cli_streams_ready();
+            flux::FluxCanvas cv;
+            cv.resize(win_w, win_h);
+            app.render(cv);
+            if (!cv.save_png(render_png)) {
+                std::cerr << "[minecc] Failed to write PNG: " << render_png << "\n";
                 return 2;
             }
-            std::cout << "[minecc-studio] Rendered " << engine.painter.width << "x" << engine.painter.height
-                      << " software frame in " << std::fixed << std::setprecision(2) << engine.last_paint_ms
-                      << " ms -> " << png_out << "\n";
+            std::cout << "[minecc] Rendered " << cv.width << "x" << cv.height
+                      << " (" << screen_name << ") in " << app.last_render_ms << " ms -> " << render_png << "\n";
             return 0;
         }
 
-        if (!serve_addr.empty()) {
-            return helios::run_remote_framebuffer_server(engine, serve_addr, bin_dir);
+        if (serve_port > 0) {
+            flux::platform::ensure_cli_streams_ready();
+            return flux::platform::run_preview_server(app, serve_port);
         }
 
-        return helios::run_native_desktop_window(
-            engine,
-            "minecc-studio — Minecraft 26.3 Native Code Explorer (Helios C++20 HTML5/CSS3/JS Engine)");
+        return flux::platform::run_desktop_window(app, win_w, win_h);
     } catch (const std::exception& ex) {
-        std::cerr << "[minecc-studio] Fatal error: " << ex.what() << "\n";
-        return 1;
+        flux::platform::ensure_cli_streams_ready();
+        std::cerr << "[minecc fatal guard] " << ex.what() << "\n";
+        return 3;
+    } catch (...) {
+        return 4;
     }
 }
-
-#ifdef _WIN32
-int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
-    return main(__argc, __argv);
-}
-#endif
