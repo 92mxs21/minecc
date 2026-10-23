@@ -55,10 +55,13 @@ inline int run_ai_cli(const std::vector<std::string>& args) {
     bool as_json = false;
     std::vector<std::string> pos;
 
+    std::string base_jar_arg, out_dir_arg;
     for (size_t i = 1; i < args.size(); ++i) {
         const std::string& a = args[i];
         if (a == "--json" || a == "-j") as_json = true;
         else if (a == "--jar" && i + 1 < args.size()) jar_arg = args[++i];
+        else if (a == "--base" && i + 1 < args.size()) base_jar_arg = args[++i];
+        else if (a == "--out" && i + 1 < args.size()) out_dir_arg = args[++i];
         else if (a == "--scope" && i + 1 < args.size()) scope = to_lower(args[++i]);
         else if (a == "--method" && i + 1 < args.size()) method_filter = args[++i];
         else if (a == "--lines" && i + 1 < args.size()) line_range = args[++i];
@@ -69,18 +72,19 @@ inline int run_ai_cli(const std::vector<std::string>& args) {
 
     if (subcmd == "help" || subcmd == "--help" || subcmd == "-h" || subcmd == "skill") {
         std::cout
-            << "# minecc Headless AI Reverse-Engineering CLI (v2.0 — Zero MCP / Zero JVM Needed)\n\n"
-            << "Use `minecc ai <command> [args] [--jar path/to/client.jar] [--json]` to navigate any JVM/Minecraft JAR:\n\n"
-            << "  minecc ai overview [--jar <jar>] [--json]               # Binary SHA-1, class/method/field/string counts & entrypoints\n"
-            << "  minecc ai tree [pkg_prefix] [--depth 2] [--json]        # Compact package hierarchy with class counts\n"
+            << "# minecc Headless AI Reverse-Engineering CLI (v2.1.0 — Pure C++20 / Zero JVM)\n\n"
+            << "Use `minecc ai <command> [args] [--jar path/to/client.jar] [--json]`:\n\n"
+            << "  minecc ai overview [--jar <jar>] [--json]               # Binary SHA-1, class/method/field/string counts\n"
+            << "  minecc ai tree [pkg_prefix] [--depth 2] [--json]        # Package hierarchy with class counts\n"
             << "  minecc ai search <query> [--scope all|classes|methods|fields|strings] [--limit 30] [--json]\n"
-            << "  minecc ai inspect <Class> [--json]                      # Full Ghidra symbol sheet: flags, hierarchy, fields, methods, XRefs\n"
-            << "  minecc ai decompile <Class> [--method <fn>] [--lines A-B] [--json]  # Line-numbered Java source / stack IR recovery\n"
-            << "  minecc ai disasm <Class> [method] [--json]              # Exact PC-indexed JVMS 69.0 opcode disassembly + CP comments\n"
-            << "  minecc ai xrefs <Class|Class.member> [--json]           # Incoming & outgoing CALL / READ / WRITE / NEW / IMPLEMENTS xrefs\n"
+            << "  minecc ai inspect <Class> [--json]                      # Full symbol sheet: flags, hierarchy, fields, methods, XRefs\n"
+            << "  minecc ai decompile <Class> [--method <fn>] [--lines A-B] [--json]  # Full structured Java 8–25 decompiler\n"
+            << "  minecc ai diff <Class> [--base <old.jar>] [--jar <new.jar>] [--json] # Unified Java source diff across versions\n"
+            << "  minecc ai export-all [--jar <jar>] [--out <dir>] [--json]            # Multi-core parallel whole-JAR decompilation\n"
+            << "  minecc ai disasm <Class> [method] [--json]              # Exact PC-indexed JVMS 69.0 opcode disassembly\n"
+            << "  minecc ai xrefs <Class|Class.member> [--json]           # Incoming & outgoing CALL / READ / WRITE / NEW xrefs\n"
             << "  minecc ai callgraph <Class> [--depth 2] [--json]        # Multi-hop callers (<-) and callees (->) graph\n"
-            << "  minecc ai strings [query] [--limit 40] [--json]         # Constant-pool string hunter -> exact referencing Class.method\n"
-            << "  minecc studio --screen <home|code|disasm|xrefs|strings|palette> --class <Class> --render-png <out.png>\n\n"
+            << "  minecc ai strings [query] [--limit 40] [--json]         # Constant-pool string hunter -> Class.method\n\n"
             << "Tip: Set `MINECC_JAR=/path/to/26.3.jar` once in the shell environment so every `minecc ai ...` call auto-loads it.\n";
         return 0;
     }
@@ -359,8 +363,50 @@ inline int run_ai_cli(const std::vector<std::string>& args) {
         return 0;
     }
 
+    if (subcmd == "diff") {
+        jvm::BinaryWorkspace base_ws;
+        if (!base_jar_arg.empty()) {
+            std::string bmsg;
+            if (!base_ws.load_jar(base_jar_arg, bmsg, false)) {
+                std::cerr << "error: " << bmsg << "\n";
+                return 2;
+            }
+        }
+        std::string target = ws.resolve_class_query(pos.empty() ? "DetectedVersion" : pos[0]);
+        auto da = base_ws.inspect_class(target);
+        auto db = ws.inspect_class(target);
+        int adds = 0, dels = 0;
+        std::string patch = jvm::compute_unified_java_diff(da.source_code, db.source_code,
+                                                           "base/" + target + ".java", "target/" + target + ".java",
+                                                           &adds, &dels);
+        if (as_json) {
+            std::cout << "{\"class\":\"" << json_esc(target) << "\",\"added\":" << adds
+                      << ",\"removed\":" << dels << ",\"patch\":\"" << json_esc(patch) << "\"}\n";
+        } else {
+            std::cout << patch;
+        }
+        return 0;
+    }
+
+    if (subcmd == "export-all") {
+        std::string dst = out_dir_arg.empty() ? ".local/decompiled_out" : out_dir_arg;
+        size_t written = ws.export_all_decompiled_parallel(dst);
+        if (as_json) std::cout << "{\"written\":" << written << ",\"out_dir\":\"" << json_esc(dst) << "\"}\n";
+        else std::cout << "Exported " << written << " decompiled .java files to " << dst << "\n";
+        return 0;
+    }
+
     std::cerr << "Unknown `ai` subcommand '" << subcmd << "'. Run `minecc ai skill` for full reference.\n";
     return 1;
 }
 
 } // namespace flux::ai
+
+namespace flux {
+inline int run_ai_cli(int argc, char** argv) {
+    std::vector<std::string> args;
+    for (int i = 2; i < argc; ++i) args.emplace_back(argv[i]);
+    return ai::run_ai_cli(args);
+}
+} // namespace flux
+

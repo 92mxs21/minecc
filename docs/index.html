@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>minecc — C++20 &amp; WASM Java Decompiler</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <input type="file" id="jarFileInput" accept=".jar,.zip,.class" hidden />
+  <input type="file" id="baseJarInput" accept=".jar,.zip" hidden />
+
+  <div class="app-shell">
+    <!-- Clean Top Bar -->
+    <header class="topbar">
+      <button class="brand-btn" id="btnHome" type="button" title="Home Setup">
+        <svg class="ic" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+        <span>minecc</span>
+        <span class="ver-tag">2.1.0</span>
+      </button>
+
+      <nav class="nav-pills" aria-label="Views">
+        <button class="pill-btn active" data-nav="home" type="button">Setup</button>
+        <button class="pill-btn" data-nav="code" type="button">Code</button>
+        <button class="pill-btn" data-nav="diff" type="button">Diff</button>
+        <button class="pill-btn" data-nav="disasm" type="button">Bytecode</button>
+      </nav>
+
+      <div class="top-spacer"></div>
+
+      <button class="search-trigger" id="btnOpenSearch" type="button">
+        <svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <span>Go to class...</span>
+        <kbd>Ctrl+K</kbd>
+      </button>
+
+      <button class="btn btn-sm" id="btnCheckUpdate" type="button" title="Check GitHub Updates">
+        <svg class="ic" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        <span class="hide-mobile">Update</span>
+      </button>
+
+      <button class="btn btn-sm" id="btnTopOpenJar" type="button">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        <span>Open .jar</span>
+      </button>
+    </header>
+
+    <!-- Main Stage -->
+    <main class="main-stage">
+      <!-- 1. CLEAN DEVELOPER HOME SCREEN (Version + Snapshots + Diff + WASM Decompiler Options) -->
+      <section class="home-view" id="homeView">
+        <div class="setup-container">
+          <div class="setup-header">
+            <h1>Version &amp; Decompiler Setup</h1>
+            <p>Select a Minecraft version, compare two builds, or load a local <code>.jar</code> archive.</p>
+          </div>
+
+          <!-- Card 1: Version Selection + Show Snapshots + Diff Selection -->
+          <div class="card">
+            <div class="card-row-head">
+              <div class="card-title">
+                <svg class="ic" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                <span>Version Selection</span>
+              </div>
+              <label class="switch-row">
+                <span class="switch-label">Show Snapshots</span>
+                <span class="switch">
+                  <input type="checkbox" id="chkSnapshots" />
+                  <span class="switch-track"><span class="switch-knob"></span></span>
+                </span>
+              </label>
+            </div>
+
+            <div class="form-grid">
+              <select class="select-ctrl" id="selTargetVersion" aria-label="Target Minecraft Version"></select>
+              <button class="btn" id="btnPickTargetJar" type="button">
+                <svg class="ic" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <span id="lblTargetJar">Browse .jar</span>
+              </button>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Diff Selection Toggle -->
+            <label class="switch-row">
+              <span>
+                <span class="switch-label">Diff Selection (Compare Two Versions)</span>
+                <span class="switch-sub">Inspect added, removed, and modified classes &amp; lines between builds</span>
+              </span>
+              <span class="switch">
+                <input type="checkbox" id="chkDiffMode" />
+                <span class="switch-track"><span class="switch-knob"></span></span>
+              </span>
+            </label>
+
+            <div class="collapse-wrap" id="diffPanel">
+              <div class="collapse-inner">
+                <div class="form-grid">
+                  <select class="select-ctrl" id="selBaseVersion" aria-label="Base Version for Diff"></select>
+                  <button class="btn" id="btnPickBaseJar" type="button">
+                    <svg class="ic" viewBox="0 0 24 24"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" y1="9" x2="6" y2="21"/></svg>
+                    <span id="lblBaseJar">Base .jar</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 2: WASM Decompiler Options -->
+          <div class="card">
+            <div class="card-row-head">
+              <div class="card-title">
+                <svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/></svg>
+                <span>WASM Decompiler Options</span>
+              </div>
+              <span class="ver-tag" id="wasmBadge">C++20 WASM Ready</span>
+            </div>
+
+            <select class="select-ctrl" id="selWasmPreset" aria-label="WASM Optimization Preset">
+              <option value="full">Preset: Full Structured Java 25 (CFG + Lambdas + Generics)</option>
+              <option value="fast">Preset: Fast Interactive Web Mode (Low Memory)</option>
+              <option value="ir">Preset: Stack IR + Bytecode Offsets</option>
+            </select>
+
+            <label class="switch-row">
+              <span class="switch-label">Recover Structured Control Flow (<code>if / else / while / switch / try-catch</code>)</span>
+              <span class="switch"><input type="checkbox" id="optCfg" checked /><span class="switch-track"><span class="switch-knob"></span></span></span>
+            </label>
+
+            <label class="switch-row">
+              <span class="switch-label">Inline Lambdas &amp; String Concatenation (<code>invokedynamic</code>)</span>
+              <span class="switch"><input type="checkbox" id="optLambdas" checked /><span class="switch-track"><span class="switch-knob"></span></span></span>
+            </label>
+
+            <label class="switch-row">
+              <span class="switch-label">Resolve Generic Signatures &amp; Record Components (<code>&lt;T&gt;</code>)</span>
+              <span class="switch"><input type="checkbox" id="optGenerics" checked /><span class="switch-track"><span class="switch-knob"></span></span></span>
+            </label>
+
+            <label class="switch-row">
+              <span class="switch-label">Emit Bytecode PC Offset Comments</span>
+              <span class="switch"><input type="checkbox" id="optPc" /><span class="switch-track"><span class="switch-knob"></span></span></span>
+            </label>
+          </div>
+
+          <!-- Primary Launch Button -->
+          <div class="action-bar">
+            <button class="btn btn-primary" id="btnLaunchStudio" type="button">
+              <svg class="ic" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+              <span id="lblLaunchBtn">Open Decompiler</span>
+            </button>
+          </div>
+
+          <!-- PC Client Note -->
+          <div class="pc-note">
+            <span>On PC? Native <code>.exe</code> unlocks multi-core thread pools &amp; full-JAR batch export.</span>
+            <a class="btn btn-sm" href="https://github.com/92mxs21/minecc/releases/latest" target="_blank" rel="noopener">
+              <svg class="ic" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <span>Download PC Client</span>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. ZERO-LAG DECOMPILER & DIFF WORKSPACE -->
+      <section class="studio-view" id="studioView" data-mpane="code" hidden>
+        <!-- Left Class / Diff List -->
+        <aside class="pane pane-left">
+          <div class="pane-head">
+            <input class="filter-input" id="txtClassFilter" type="search" placeholder="Filter classes..." autocomplete="off" />
+          </div>
+          <div class="scroll-list" id="classList"></div>
+        </aside>
+
+        <!-- Center Code / Diff / Bytecode View -->
+        <section class="pane pane-center">
+          <div class="editor-bar">
+            <div class="class-path" id="lblActivePath">net/minecraft/DetectedVersion.java</div>
+            <div class="mode-tabs">
+              <button class="pill-btn active" data-tab="code" type="button">Code</button>
+              <button class="pill-btn" data-tab="diff" type="button">Diff</button>
+              <button class="pill-btn" data-tab="disasm" type="button">Bytecode</button>
+            </div>
+          </div>
+          <div class="code-scroller" id="codeScroller"></div>
+        </section>
+
+        <!-- Right Outline & XRefs -->
+        <aside class="pane pane-right">
+          <div class="pane-head">
+            <strong style="font-size:12px;">Methods &amp; XRefs</strong>
+          </div>
+          <div class="scroll-list" id="outlineList"></div>
+        </aside>
+      </section>
+    </main>
+
+    <!-- Desktop Status Bar -->
+    <footer class="statusbar">
+      <span id="statusText">C++20 WebAssembly Engine initializing...</span>
+      <span id="perfText">0.0 ms</span>
+    </footer>
+
+    <!-- Phone / Mobile Auto-Resized Bottom Bar -->
+    <nav class="mobile-nav" id="mobileNav" aria-label="Mobile Navigation">
+      <button class="mnav-btn active" data-mnav="home" type="button">
+        <svg class="ic" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 12 12 17 22 12"/></svg>
+        <span>Setup</span>
+      </button>
+      <button class="mnav-btn" data-mnav="classes" type="button">
+        <svg class="ic" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        <span>Classes</span>
+      </button>
+      <button class="mnav-btn" data-mnav="code" type="button">
+        <svg class="ic" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        <span>Code</span>
+      </button>
+      <button class="mnav-btn" data-mnav="outline" type="button">
+        <svg class="ic" viewBox="0 0 24 24"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" y1="9" x2="6" y2="21"/></svg>
+        <span>Outline</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Startup Auto-Updater Toast (`yoooo brooo update (pls update fixes things)`) -->
+  <aside class="update-toast" id="updateToast" role="status" aria-live="polite">
+    <div class="upd-top">
+      <svg class="ic" style="color:var(--accent);width:20px;height:20px;margin-top:1px;" viewBox="0 0 24 24">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      <div>
+        <div class="upd-head" id="updHeadline">yoooo brooo update (pls update fixes things)</div>
+        <div class="upd-sub" id="updDetail">Checking GitHub Releases...</div>
+      </div>
+      <button class="upd-close" id="btnCloseUpdate" type="button" aria-label="Dismiss">
+        <svg class="ic" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="upd-actions">
+      <a class="btn btn-sm btn-primary" id="btnUpdateNow" href="https://github.com/92mxs21/minecc/releases/latest" target="_blank" rel="noopener">
+        Update Now
+      </a>
+      <button class="btn btn-sm" id="btnDismissUpdate2" type="button">Later</button>
+    </div>
+  </aside>
+
+  <!-- Quick Search Modal (`Ctrl+K`) -->
+  <div class="modal-backdrop" id="searchModal" hidden>
+    <div class="modal-box">
+      <input class="modal-input" id="txtQuickSearch" type="search" placeholder="Search classes..." autocomplete="off" />
+      <div class="scroll-list" id="quickSearchList" style="max-height:320px;"></div>
+    </div>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>

@@ -11,7 +11,7 @@ on:
       tag:
         description: "Release tag to publish or update"
         required: false
-        default: "v2.0.0"
+        default: "v2.1.0"
 
 permissions:
   contents: write
@@ -24,9 +24,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install Zig C++ cross-toolchain & Pillow
+      - name: Install Zig C++ cross-toolchain
         run: python3 -m pip install ziglang pillow
-      - name: Compile Linux x86_64 & Windows x86_64 Native Binaries
+      - name: Compile C++20 WASM + Linux x86_64 + Windows x86_64 GPU Binaries
         run: python3 scripts/build_native.py
       - name: Run Clean-Room & Full Engine Test Suite
         run: |
@@ -38,7 +38,7 @@ jobs:
         run: |
           TAG="${{ inputs.tag || github.ref_name }}"
           if [[ "$TAG" != v* ]]; then
-            TAG="v2.0.0"
+            TAG="v2.1.0"
           fi
           (cd bin && sha256sum minecc-windows-x86_64.exe minecc-linux-x86_64 minecc-uic-windows-x86_64.exe minecc-uic-linux-x86_64 > SHA256SUMS.txt)
           if gh release view "$TAG" >/dev/null 2>&1; then
@@ -47,16 +47,18 @@ jobs:
               bin/minecc-linux-x86_64 \
               bin/minecc-uic-windows-x86_64.exe \
               bin/minecc-uic-linux-x86_64 \
+              docs/minecc.wasm \
               bin/SHA256SUMS.txt \
               --clobber
           else
             gh release create "$TAG" \
               --target main \
-              --title "minecc $TAG — Native C++20 Dark Animated Studio + Headless AI CLI" \
+              --title "minecc $TAG — C++20 Java Decompiler, Version Diff, GPU UI & WebAssembly" \
               --generate-notes \
               bin/minecc-windows-x86_64.exe \
               bin/minecc-linux-x86_64 \
               bin/minecc-uic-windows-x86_64.exe \
               bin/minecc-uic-linux-x86_64 \
+              docs/minecc.wasm \
               bin/SHA256SUMS.txt
           fi

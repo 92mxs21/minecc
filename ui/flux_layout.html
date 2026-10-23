@@ -1,23 +1,13 @@
 <!DOCTYPE html>
-<!-- FluxUI Minimal Forked HTML Layout Specification (`ui/flux_layout.html`)
-     Compiled ahead-of-time into zero-allocation C++20 `constexpr` structs by `minecc-uic`. -->
-<app brand="minecc" badge="v2.0 NATIVE" subtitle="C++20 Self-Rendered Binary &amp; Java 25 Studio">
+<!-- Clean Minimal Developer Launcher Specification (`ui/flux_layout.html`) -->
+<app brand="minecc" badge="2.1.0" subtitle="Java &amp; Minecraft Decompiler">
   <hero
-    eyebrow="PURE C++20 SELF-RENDERER  ·  ZERO WEBVIEW  ·  GHIDRA-GRADE AI CLI"
-    title="Reverse Engineer Java &amp; Minecraft at Native Speed."
-    lead="Sub-2ms software-composited dark studio with instant 0xCAFEBABE disassembly, stack expression recovery, cross-references, and headless AI CLI."
-    search_placeholder="Search classes, methods, constant-pool strings, or jump to symbol...  (Ctrl+K)" />
-
-  <bento action="open_jar" accent="cyan" key="Ctrl+O"
-         title="Load Local Minecraft JAR"
-         desc="Open 26.3.jar or server.jar with non-blocking C++ ZIP64 + DEFLATE indexing" />
-  <bento action="goto_code" accent="indigo" key="1"
-         title="Code &amp; Expression Decompiler"
-         desc="Virtualized package tree, Java 25 syntax view &amp; live incoming XRefs split" />
-  <bento action="goto_xrefs" accent="emerald" key="2"
-         title="Cross-References &amp; Call Graph"
-         desc="Trace every CALL, READ, WRITE, NEW &amp; subtype across all classes instantly" />
-  <bento action="copy_ai_cli" accent="amber" key="AI CLI"
-         title="Headless AI Agent CLI"
-         desc="Copy ready-to-run `minecc ai` commands for Claude Code, Cursor &amp; Codex" />
+    eyebrow=""
+    title="Select Version &amp; Decompiler"
+    lead="Choose a game version, compare two builds, or open a local JAR."
+    search_placeholder="Go to class, method, or string... (Ctrl+K)" />
+  <bento action="open_jar" accent="cyan" key="Ctrl+O" title="Browse Local JAR" desc="Load client.jar or server.jar from disk" />
+  <bento action="goto_code" accent="indigo" key="1" title="Code View" desc="Decompiled Java 25 source" />
+  <bento action="goto_xrefs" accent="emerald" key="2" title="Diff View" desc="Side-by-side class &amp; source diff" />
+  <bento action="copy_ai_cli" accent="amber" key="CLI" title="Headless CLI" desc="minecc ai subcommands" />
 </app>

@@ -14,23 +14,23 @@ struct ThemePalette {
 };
 
 inline constexpr ThemePalette THEME = {
-    0xff07090du, 0xff0a0d13u, 0xff0c1017u, 0xff0e131bu,
-    0xff121824u, 0xff0f1520u, 0xff182132u, 0xff1b2538u,
-    0x2338bdf8u, 0x1638bdf8u, 0x1c94a3b8u, 0x3394a3b8u,
-    0x8438bdf8u, 0xcffffffu,
-    0xff38bdf8u, 0xff818cf8u, 0xff34d399u, 0xfffbbf24u, 0xfffb7185u,
-    0xfff8fafcu, 0xffcbd5e1u, 0xff94a3b8u, 0xff5b6b82u,
-    0xffc084fcu, 0xff38bdf8u, 0xfffcd34du, 0xff7dd3fcu,
-    0xff6ee7b7u, 0xfffb923cu, 0xff4e6078u, 0xfff472b6u,
-    56.0f, 46.0f, 6.0f, 10.0f, 14.0f, 14.0f
+    0xff0e1015u, 0xff12151cu, 0xff141820u, 0xff151922u,
+    0xff181d27u, 0xff141821u, 0xff1f2633u, 0xff232b3au,
+    0x283b82f6u, 0x193b82f6u, 0x14ffffffu, 0x23ffffffu,
+    0xa53b82f6u, 0x7ffffffu,
+    0xff3b82f6u, 0xff60a5fau, 0xff22c55eu, 0xffeab308u, 0xffef4444u,
+    0xfff1f5f9u, 0xffd1d5dbu, 0xff9ca3afu, 0xff6b7280u,
+    0xffc678ddu, 0xff61afefu, 0xffe5c07bu, 0xff7dd3fcu,
+    0xff98c379u, 0xffd19a66u, 0xff5c6370u, 0xffe06c75u,
+    48.0f, 42.0f, 6.0f, 8.0f, 10.0f, 18.0f
 };
 
 inline constexpr const char* APP_BRAND = "minecc";
-inline constexpr const char* APP_BADGE = "v2.0 NATIVE";
-inline constexpr const char* HERO_EYEBROW = "PURE C++20 SELF-RENDERER  ·  ZERO WEBVIEW  ·  GHIDRA-GRADE AI CLI";
-inline constexpr const char* HERO_TITLE = "Reverse Engineer Java & Minecraft at Native Speed.";
-inline constexpr const char* HERO_LEAD = "Sub-2ms software-composited dark studio with instant 0xCAFEBABE disassembly, stack expression recovery, cross-references, and headless AI CLI.";
-inline constexpr const char* SEARCH_HINT = "Search classes, methods, constant-pool strings, or jump to symbol...  (Ctrl+K)";
+inline constexpr const char* APP_BADGE = "2.1.0";
+inline constexpr const char* HERO_EYEBROW = "";
+inline constexpr const char* HERO_TITLE = "Select Version & Decompiler";
+inline constexpr const char* HERO_LEAD = "Choose a game version, compare two builds, or open a local JAR.";
+inline constexpr const char* SEARCH_HINT = "Go to class, method, or string... (Ctrl+K)";
 
 struct BentoCardSpec {
     const char* action;
@@ -42,10 +42,10 @@ struct BentoCardSpec {
 
 inline constexpr size_t BENTO_COUNT = 4u;
 inline constexpr BentoCardSpec BENTO_CARDS[4] = {
-    {"open_jar", "cyan", "Ctrl+O", "Load Local Minecraft JAR", "Open 26.3.jar or server.jar with non-blocking C++ ZIP64 + DEFLATE indexing"},
-    {"goto_code", "indigo", "1", "Code & Expression Decompiler", "Virtualized package tree, Java 25 syntax view & live incoming XRefs split"},
-    {"goto_xrefs", "emerald", "2", "Cross-References & Call Graph", "Trace every CALL, READ, WRITE, NEW & subtype across all classes instantly"},
-    {"copy_ai_cli", "amber", "AI CLI", "Headless AI Agent CLI", "Copy ready-to-run `minecc ai` commands for Claude Code, Cursor & Codex"},
+    {"open_jar", "cyan", "Ctrl+O", "Browse Local JAR", "Load client.jar or server.jar from disk"},
+    {"goto_code", "indigo", "1", "Code View", "Decompiled Java 25 source"},
+    {"goto_xrefs", "emerald", "2", "Diff View", "Side-by-side class & source diff"},
+    {"copy_ai_cli", "amber", "CLI", "Headless CLI", "minecc ai subcommands"},
 };
 
 } // namespace flux::spec

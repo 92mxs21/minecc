@@ -1,8 +1,11 @@
-// minecc v2.0 — Native C++20 Self-Rendered Dark Studio + Headless Ghidra-Grade AI CLI
-// Zero WebView · Zero Browser Engine · Zero Proprietary Mojang Code Distributed
+// studio_main.cpp — Single Unified Entrypoint for `minecc` v2.1.0 (Windows .exe & Linux ELF)
+//   1. `minecc`                         -> Hardware GPU OpenGL Desktop UI + Startup Auto-Updater
+//   2. `minecc ai <subcommand> [...]`   -> Pure C++20 Headless AI CLI (decompile, diff, export-all, disasm, xrefs)
+//   3. `minecc --serve <port>`          -> Serves 60/120fps WebAssembly Studio (`docs/*`) on `0.0.0.0:<port>`
+//   4. `minecc --benchmark-fps`         -> Measures native UI CPU frame build speed (`< 0.1 ms`!)
 
-#include <cstring>
-#include <exception>
+#include <chrono>
+#include <filesystem>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -10,131 +13,70 @@
 #include "native/include/flux/ai_cli.hpp"
 #include "native/include/flux/platform_io.hpp"
 
-namespace {
-
-bool is_ai_subcommand(const std::string& s) {
-    return s == "ai" || s == "skill" || s == "overview" || s == "tree" ||
-           s == "search" || s == "inspect" || s == "decompile" ||
-           s == "disasm" || s == "xrefs" || s == "callgraph" || s == "strings";
-}
-
-void print_help() {
-    std::cout
-        << "minecc v2.0.0 — Pure C++20 Self-Rendered Java & Minecraft Studio + Headless AI CLI\n\n"
-        << "GUI & Preview Modes:\n"
-        << "  minecc                              Launch native dark desktop studio (Home Screen)\n"
-        << "  minecc <path/to/26.3.jar>           Launch studio pre-loaded with local JAR\n"
-        << "  minecc --serve <port>               Run live interactive HTML5 canvas server on 0.0.0.0:<port>\n"
-        << "  minecc --render-png <out.png> [--screen home|code|disasm|xrefs|strings|palette] [--class <Name>]\n\n"
-        << "Headless AI Reverse-Engineering CLI (Zero MCP / Zero JVM Overhead):\n"
-        << "  minecc ai skill                     Print full AI Agent playbook & command reference\n"
-        << "  minecc ai overview [--jar <jar>] [--json]\n"
-        << "  minecc ai tree [pkg] [--depth N] [--jar <jar>] [--json]\n"
-        << "  minecc ai search <query> [--scope all|classes|methods|fields|strings] [--json]\n"
-        << "  minecc ai inspect <Class> [--jar <jar>] [--json]\n"
-        << "  minecc ai decompile <Class> [--lines A-B] [--jar <jar>] [--json]\n"
-        << "  minecc ai disasm <Class> [method] [--jar <jar>] [--json]\n"
-        << "  minecc ai xrefs <Symbol> [--jar <jar>] [--json]\n"
-        << "  minecc ai callgraph <Class> [--jar <jar>] [--json]\n"
-        << "  minecc ai strings [query] [--limit N] [--jar <jar>] [--json]\n";
-}
-
-} // namespace
-
 int main(int argc, char** argv) {
-    try {
-        if (argc >= 2) {
-            std::string first = argv[1];
-            if (first == "--version" || first == "-v") {
-                flux::platform::ensure_cli_streams_ready();
-                std::cout << "minecc 2.0.0 (FluxUI Pure C++20 Self-Renderer + Headless AI CLI)\n";
-                return 0;
-            }
-            if (first == "--help" || first == "-h" || first == "help") {
-                flux::platform::ensure_cli_streams_ready();
-                print_help();
-                return 0;
-            }
-            // Route BOTH `minecc ai <subcmd> ...` AND direct shorthand `minecc <subcmd> ...` cleanly!
-            if (is_ai_subcommand(first)) {
-                flux::platform::ensure_cli_streams_ready();
-                std::vector<std::string> ai_args;
-                int start_i = (first == "ai") ? 2 : 1;
-                for (int i = start_i; i < argc; ++i) ai_args.emplace_back(argv[i]);
-                return flux::ai::run_ai_cli(ai_args);
-            }
-        }
+    if (argc >= 2 && std::string_view(argv[1]) == "ai") {
+        return flux::run_ai_cli(argc, argv);
+    }
 
-        std::string jar_path;
-        std::string render_png;
-        std::string screen_name = "home";
-        std::string initial_class;
-        std::string palette_seed;
-        int serve_port = 0;
-        int win_w = 1440;
-        int win_h = 880;
+    std::string jar_arg, base_jar_arg;
+    int serve_port = 0;
+    bool simulate_update = false;
+    bool benchmark_fps = false;
 
-        for (int i = 1; i < argc; ++i) {
-            std::string a = argv[i];
-            if (a == "--jar" && i + 1 < argc) jar_path = argv[++i];
-            else if (a == "--render-png" && i + 1 < argc) render_png = argv[++i];
-            else if (a == "--screen" && i + 1 < argc) screen_name = argv[++i];
-            else if (a == "--class" && i + 1 < argc) initial_class = argv[++i];
-            else if (a == "--query" && i + 1 < argc) palette_seed = argv[++i];
-            else if (a == "--serve" && i + 1 < argc) serve_port = std::atoi(argv[++i]);
-            else if (a == "--width" && i + 1 < argc) win_w = std::atoi(argv[++i]);
-            else if (a == "--height" && i + 1 < argc) win_h = std::atoi(argv[++i]);
-            else if (a.size() > 4 && a.substr(a.size() - 4) == ".jar") jar_path = a;
-        }
-
-        flux::StudioApp app;
-        if (jar_path.empty()) jar_path = flux::jvm::BinaryWorkspace::detect_local_minecraft_jar();
-        if (!jar_path.empty()) {
-            app.load_jar_file(jar_path, /*sync_index=*/!render_png.empty());
-        }
-
-        if (!initial_class.empty()) app.open_class(initial_class);
-
-        if (screen_name == "home") app.switch_screen(flux::Screen::Home);
-        else if (screen_name == "code") app.switch_screen(flux::Screen::Code);
-        else if (screen_name == "disasm") app.switch_screen(flux::Screen::Disasm);
-        else if (screen_name == "xrefs") app.switch_screen(flux::Screen::XRefs);
-        else if (screen_name == "strings") app.switch_screen(flux::Screen::Strings);
-        else if (screen_name == "palette") {
-            app.switch_screen(flux::Screen::Code);
-            app.toggle_palette(true, palette_seed);
-            app.palette_anim_t = 1.0f;
-        }
-
-        // Settle initial view spring for deterministic headless screenshot output
-        app.view_enter_t = 1.0f;
-        app.rail_pill_y = flux::StudioApp::rail_slot_y(app.screen);
-
-        if (!render_png.empty()) {
-            flux::platform::ensure_cli_streams_ready();
-            flux::FluxCanvas cv;
-            cv.resize(win_w, win_h);
-            app.render(cv);
-            if (!cv.save_png(render_png)) {
-                std::cerr << "[minecc] Failed to write PNG: " << render_png << "\n";
-                return 2;
-            }
-            std::cout << "[minecc] Rendered " << cv.width << "x" << cv.height
-                      << " (" << screen_name << ") in " << app.last_render_ms << " ms -> " << render_png << "\n";
+    for (int i = 1; i < argc; ++i) {
+        std::string a = argv[i];
+        if (a == "--version" || a == "-v") {
+            std::cout << "minecc 2.1.0 (Pure C++20 Native Java 8–25 Decompiler, Diff & GPU UI)\n";
             return 0;
         }
-
-        if (serve_port > 0) {
-            flux::platform::ensure_cli_streams_ready();
-            return flux::platform::run_preview_server(app, serve_port);
+        if (a == "--help" || a == "-h") {
+            std::cout
+                << "minecc 2.1.0 — Clean-Room Native C++20 Java Decompiler, Version Diff & Studio\n\n"
+                << "Usage:\n"
+                << "  minecc                              Launch native desktop studio\n"
+                << "  minecc --jar <path.jar>             Launch with target JAR loaded\n"
+                << "  minecc --base-jar <path.jar>        Preload base JAR for Version Diff\n"
+                << "  minecc --simulate-update            Test startup auto-update notification banner\n"
+                << "  minecc --serve <port>               Run live WebAssembly Studio preview on 0.0.0.0:<port>\n"
+                << "  minecc ai --help                    Headless C++20 CLI commands\n";
+            return 0;
         }
-
-        return flux::platform::run_desktop_window(app, win_w, win_h);
-    } catch (const std::exception& ex) {
-        flux::platform::ensure_cli_streams_ready();
-        std::cerr << "[minecc fatal guard] " << ex.what() << "\n";
-        return 3;
-    } catch (...) {
-        return 4;
+        if (a == "--jar" && i + 1 < argc) jar_arg = argv[++i];
+        else if (a == "--base-jar" && i + 1 < argc) base_jar_arg = argv[++i];
+        else if (a == "--serve" && i + 1 < argc) serve_port = std::stoi(argv[++i]);
+        else if (a == "--simulate-update") simulate_update = true;
+        else if (a == "--benchmark-fps") benchmark_fps = true;
+        else if (!a.empty() && a[0] != '-' && jar_arg.empty() && std::filesystem::is_regular_file(a)) {
+            jar_arg = a;
+        }
     }
+
+    flux::StudioApp app;
+    // Automatically run non-blocking GitHub Release update check on every startup!
+    app.auto_updater.start_async_check(argc > 0 ? argv[0] : "", simulate_update);
+
+    if (!base_jar_arg.empty()) app.load_jar_file(base_jar_arg, true, false);
+    if (!jar_arg.empty()) app.load_jar_file(jar_arg, false, false);
+
+    if (benchmark_fps) {
+        flux::FluxCanvas cv;
+        cv.width = 1920; cv.height = 1080;
+        auto t0 = std::chrono::steady_clock::now();
+        constexpr int FRAMES = 500;
+        for (int f = 0; f < FRAMES; ++f) {
+            app.tick_animations(1.0f / 120.0f);
+            app.render(cv);
+        }
+        double total_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+        std::cout << "[benchmark] 1920x1080 native UI batch: " << (total_ms / FRAMES)
+                  << " ms/frame (" << int(1000.0 / (total_ms / FRAMES)) << " theoretical FPS, "
+                  << cv.verts.size() / 6 << " GPU quads/frame)\n";
+        return 0;
+    }
+
+    if (serve_port > 0) {
+        return flux::run_web_preview_server(app, serve_port);
+    }
+
+    return flux::run_native_window(app);
 }

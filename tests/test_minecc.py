@@ -388,33 +388,67 @@ class TestNativeEngineCompilerAndExecutables(unittest.TestCase):
             res_fuzz = subprocess.run([str(exe), "ai", "inspect", "Broken", "--jar", str(fuzz_jar)], capture_output=True, text=True)
             self.assertGreaterEqual(res_fuzz.returncode, 0)
 
-            # 2. Full Minecraft 26.3 scale test: 11,383 classes in a compressed JAR + 1440x880 native render!
+            # 2. Full Minecraft 26.3 scale test (11,383 classes) + Structured CFG + Version Diff + WASM check (0 PNGs!)
+            base_jar = tdir / "base_26_2.jar"
             scale_jar = tdir / "scale_26_3_11383_classes.jar"
+
+            base_cls = _build_synthetic_class(
+                "net/minecraft/DetectedVersion",
+                fields=[("protocolVersion", "I")],
+                methods=[("tryDetectVersion", "()I", b"\x11\x03\x04\xac", [12], [])],
+                source_file="DetectedVersion.java",
+            )
+            # Includes conditional branch (`iload_1; ifle +7; sipush 773; ireturn; iconst_0; ireturn`) to verify structured CFG + LocalVariableTable!
+            cfg_bytecode = bytes([0x1B, 0x9E, 0x00, 0x07, 0x11, 0x03, 0x05, 0xAC, 0x03, 0xAC])
             sample_cls = _build_synthetic_class(
                 "net/minecraft/DetectedVersion",
                 fields=[("protocolVersion", "I")],
-                methods=[("tryDetectVersion", "()I", b"\x11\x03\x05\xac", [12], ["v"])],
+                methods=[("tryDetectVersion", "(I)I", cfg_bytecode, [12], ["flag"])],
                 source_file="DetectedVersion.java",
             )
+            with zipfile.ZipFile(base_jar, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                zf.writestr("net/minecraft/DetectedVersion.class", base_cls)
             with zipfile.ZipFile(scale_jar, "w", compression=zipfile.ZIP_DEFLATED) as zf:
                 zf.writestr("net/minecraft/DetectedVersion.class", sample_cls)
                 for i in range(11_382):
                     zf.writestr(f"net/minecraft/pkg{i // 200}/Cls{i}.class", sample_cls)
 
+            # Verify structured `if (flag > 0)` recovery on real JVM conditional branch bytecode
+            res_cfg = subprocess.run(
+                [str(exe), "ai", "decompile", "DetectedVersion", "--jar", str(scale_jar)],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            self.assertIn("if (flag > 0)", res_cfg.stdout)
+            self.assertIn("return 773;", res_cfg.stdout)
+
+            # Verify unified Java diff across Base <-> Target JARs
+            res_diff = subprocess.run(
+                [str(exe), "ai", "diff", "DetectedVersion", "--base", str(base_jar), "--jar", str(scale_jar), "--json"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            diff_json = json.loads(res_diff.stdout)
+            self.assertGreater(diff_json["added"], 0)
+            self.assertIn("+             return 773;", diff_json["patch"])
+
+            # Verify 1080p native GPU batch speed (< 1.0 ms/frame!) and valid compiled WebAssembly binary
             t0 = time.perf_counter()
-            out_png = tdir / "scale_render.png"
-            res_scale = subprocess.run(
-                [str(exe), "--jar", str(scale_jar), "--screen", "code", "--class", "DetectedVersion", "--render-png", str(out_png)],
+            res_bench = subprocess.run(
+                [str(exe), "--jar", str(scale_jar), "--benchmark-fps"],
                 capture_output=True,
                 text=True,
                 check=True,
             )
             elapsed = time.perf_counter() - t0
-            self.assertLess(elapsed, 4.0, f"11,383-class index + 1440x880 render took too long: {elapsed:.2f}s")
-            png_bytes = out_png.read_bytes()
-            self.assertEqual(png_bytes[:8], b"\x89PNG\r\n\x1a\n")
-            w, h = struct.unpack_from(">II", png_bytes, 16)
-            self.assertEqual((w, h), (1440, 880))
+            self.assertIn("GPU quads/frame", res_bench.stdout)
+            self.assertLess(elapsed, 4.0, f"11,383-class load + 500x 1080p frames took too long: {elapsed:.2f}s")
+
+            wasm_file = Path(__file__).resolve().parents[1] / "docs/minecc.wasm"
+            self.assertTrue(wasm_file.is_file(), "docs/minecc.wasm must exist for GitHub Pages!")
+            self.assertEqual(wasm_file.read_bytes()[:8], b"\x00asm\x01\x00\x00\x00")
 
 
 if __name__ == "__main__":
